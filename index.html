@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人智捷通訊錄 - Firebase 雲端版</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Microsoft JhengHei', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+            background-color: #f8fafc;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Top Header Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <!-- Logo & Status -->
+            <div class="flex items-center space-x-3 shrink-0">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-200">
+                    <i class="fa-solid font-bold fa-address-book text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">智捷通訊錄</h1>
+                    <div id="cloudStatusBadge" class="flex items-center space-x-1.5 text-xs text-amber-600 font-medium">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span id="statusText">連線中...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header Action Buttons -->
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <div id="userProfileArea" class="hidden items-center space-x-2 bg-indigo-50 border border-indigo-100 p-1.5 rounded-xl">
+                    <img id="userAvatar" src="" alt="Avatar" class="w-7 h-7 rounded-full object-cover border border-indigo-300">
+                    <div class="hidden sm:block text-left pr-1">
+                        <div class="flex items-center space-x-1">
+                            <span class="bg-indigo-600 text-white text-[9px] px-1.5 py-0.2 rounded font-bold uppercase">Admin</span>
+                            <div id="userName" class="text-xs font-bold text-slate-800 leading-none">管理者</div>
+                        </div>
+                        <div id="userEmail" class="text-[10px] text-indigo-600 font-mono leading-tight mt-0.5 truncate max-w-[120px]"></div>
+                    </div>
+                    <button id="btnSignOut" class="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-white rounded-lg transition text-xs shadow-none" title="登出管理者">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+
+                <button id="btnGoogleLogin" class="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white px-3.5 py-2 rounded-xl font-medium text-xs sm:text-sm transition shadow-md shadow-indigo-100 flex items-center space-x-2">
+                    <i class="fa-brands fa-google text-amber-300"></i>
+                    <span>Google 帳號驗證登入</span>
+                </button>
+
+                <button id="btnPublicConfigSettings" class="p-2 sm:px-3 sm:py-2 text-slate-600 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition text-sm flex items-center space-x-1 font-medium border border-slate-200" title="Firebase 設定">
+                    <i class="fa-solid fa-gear"></i>
+                    <span class="hidden sm:inline">Firebase 設定</span>
+                </button>
+
+                <!-- Authenticated Header Actions (Only shown after authentication) -->
+                <div id="authenticatedHeaderActions" class="hidden items-center space-x-2 sm:space-x-3">
+                    <button id="btnImportExport" class="p-2 sm:px-3 sm:py-2 text-slate-600 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition text-sm flex items-center space-x-1 font-medium border border-slate-200">
+                        <i class="fa-solid fa-file-import"></i>
+                        <span class="hidden sm:inline">匯入/匯出</span>
+                    </button>
+
+                    <button id="btnConfigSettings" class="p-2 sm:px-3 sm:py-2 text-slate-600 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition text-sm flex items-center space-x-1 font-medium border border-slate-200">
+                        <i class="fa-solid fa-gear"></i>
+                        <span class="hidden sm:inline">Firebase 設定</span>
+                    </button>
+
+                    <button id="btnAddContact" class="bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white px-3.5 py-2 rounded-lg font-medium text-sm transition shadow-sm shadow-sky-200 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        <span>新增聯絡人</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Permission Warning Banner (Shown when Firestore Security Rules block access) -->
+    <div id="permissionWarningBanner" class="hidden bg-rose-50 border-b border-rose-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between text-xs sm:text-sm text-rose-800">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-triangle-exclamation text-rose-600 text-base"></i>
+                <span><strong>Firebase 權限不足警告：</strong>Firestore 規則禁止讀寫，請至 Firebase Console 更新安全規則 (Rules)。</span>
+            </div>
+            <button id="btnOpenRulesGuide" class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-lg font-bold text-xs shrink-0 ml-2 shadow-sm transition">
+                查看解決方法
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Unauthenticated Lock Screen (Shown when not logged in) -->
+        <div id="loginRequiredView" class="flex flex-col items-center justify-center py-24 px-4 text-center bg-white rounded-3xl border border-slate-200 shadow-sm space-y-6 animate-fade-in my-8">
+            <div class="relative">
+                <div class="w-24 h-24 rounded-3xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center text-4xl shadow-inner">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="absolute -bottom-1 -right-1 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs border-2 border-white shadow-md">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+            </div>
+
+            <div class="space-y-2 max-w-md">
+                <h2 class="text-2xl font-bold text-slate-900">管理者身分驗證鎖定</h2>
+                <p class="text-sm text-slate-500 leading-relaxed">
+                    請使用管理者 Google 帳號 (<span class="font-semibold text-indigo-600">ericyeh@ntsu.edu.tw</span>) 登入驗證。完成驗證後方可進行聯絡人之<strong>查詢、新增、修改與刪除</strong>功能。
+                </p>
+            </div>
+
+            <button id="btnLockScreenLogin" class="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white px-8 py-3.5 rounded-2xl font-bold text-sm transition-all transform hover:-translate-y-0.5 shadow-lg shadow-indigo-200 flex items-center space-x-2.5">
+                <i class="fa-brands fa-google text-amber-300 text-lg"></i>
+                <span>使用 Google 帳號 (ericyeh@ntsu.edu.tw) 驗證登入</span>
+            </button>
+        </div>
+
+        <!-- Authenticated Content Container (Hidden until logged in) -->
+        <div id="authenticatedView" class="hidden space-y-6">
+            <!-- Controls Section: Search & Categories -->
+            <section class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-4">
+                <div class="flex flex-col md:flex-row gap-3 md:items-center justify-between">
+                    <!-- Search Input -->
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                        <input type="text" id="searchInput" placeholder="搜尋姓名、電話、Email 或備註..." 
+                            class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition">
+                        <button id="btnClearSearch" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </button>
+                    </div>
+
+                    <!-- View Switcher & Counter -->
+                    <div class="flex items-center justify-between md:justify-end gap-3 text-sm text-slate-500">
+                        <span id="contactCountBadge" class="bg-slate-100 text-slate-700 px-3 py-1 rounded-full font-medium text-xs">
+                            共 0 位聯絡人
+                        </span>
+                        <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                            <button id="btnViewGrid" class="px-2.5 py-1 rounded-lg text-sky-600 bg-white shadow-sm font-medium transition">
+                                <i class="fa-solid fa-border-all mr-1"></i>網格
+                            </button>
+                            <button id="btnViewList" class="px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 transition">
+                                <i class="fa-solid fa-list mr-1"></i>列表
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Filter Pills -->
+                <div id="categoryFilterContainer" class="flex items-center space-x-2 overflow-x-auto custom-scrollbar pb-1 text-sm font-medium">
+                    <button data-category="all" class="filter-btn active bg-sky-600 text-white px-3.5 py-1.5 rounded-xl transition shrink-0">
+                        全部
+                    </button>
+                    <button data-category="starred" class="filter-btn bg-slate-100 text-slate-600 hover:bg-slate-200 px-3.5 py-1.5 rounded-xl transition shrink-0 flex items-center space-x-1">
+                        <i class="fa-solid fa-star text-amber-400 text-xs"></i>
+                        <span>常用/最愛</span>
+                    </button>
+                    <button data-category="家人" class="filter-btn bg-slate-100 text-slate-600 hover:bg-slate-200 px-3.5 py-1.5 rounded-xl transition shrink-0">
+                        家人
+                    </button>
+                    <button data-category="工作" class="filter-btn bg-slate-100 text-slate-600 hover:bg-slate-200 px-3.5 py-1.5 rounded-xl transition shrink-0">
+                        工作
+                    </button>
+                    <button data-category="朋友" class="filter-btn bg-slate-100 text-slate-600 hover:bg-slate-200 px-3.5 py-1.5 rounded-xl transition shrink-0">
+                        朋友
+                    </button>
+                    <button data-category="其他" class="filter-btn bg-slate-100 text-slate-600 hover:bg-slate-200 px-3.5 py-1.5 rounded-xl transition shrink-0">
+                        其他
+                    </button>
+                </div>
+            </section>
+
+            <!-- Contact List Container -->
+            <section id="contactGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Contact cards will be dynamically injected here -->
+            </section>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden flex-col items-center justify-center py-16 text-center space-y-4">
+                <div class="w-20 h-20 bg-sky-50 text-sky-400 rounded-full flex items-center justify-center text-3xl">
+                    <i class="fa-solid fa-user-slash"></i>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="text-lg font-semibold text-slate-800">未找到聯絡人</h3>
+                    <p id="emptyStateSubtext" class="text-sm text-slate-500 max-w-sm">目前通訊錄為空，點擊上方按鈕新增您的第一位聯絡人！</p>
+                </div>
+                <button id="btnEmptyAdd" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm">
+                    <i class="fa-solid fa-plus mr-1"></i> 新增聯絡人
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL: Add / Edit Contact Modal -->
+    <div id="modalContactForm" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 max-h-[90vh] flex flex-col">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h3 id="formModalTitle" class="font-bold text-slate-900 text-base">新增聯絡人</h3>
+                <button class="btnCloseModal text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full hover:bg-slate-200/50 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Form Content -->
+            <form id="contactForm" class="p-6 overflow-y-auto custom-scrollbar space-y-4 flex-1">
+                <input type="hidden" id="fieldContactId">
+
+                <!-- Avatar Color Picker / Preview -->
+                <div class="flex items-center space-x-4 pb-2 border-b border-slate-100">
+                    <div id="avatarPreview" class="w-14 h-14 rounded-full bg-sky-500 text-white flex items-center justify-center text-xl font-bold shadow-md shrink-0">
+                        ?
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">頭像顏色</label>
+                        <div class="flex space-x-2">
+                            <button type="button" data-color="bg-sky-500" class="color-picker-btn w-6 h-6 rounded-full bg-sky-500 ring-2 ring-offset-1 ring-sky-500"></button>
+                            <button type="button" data-color="bg-emerald-500" class="color-picker-btn w-6 h-6 rounded-full bg-emerald-500"></button>
+                            <button type="button" data-color="bg-purple-500" class="color-picker-btn w-6 h-6 rounded-full bg-purple-500"></button>
+                            <button type="button" data-color="bg-amber-500" class="color-picker-btn w-6 h-6 rounded-full bg-amber-500"></button>
+                            <button type="button" data-color="bg-rose-500" class="color-picker-btn w-6 h-6 rounded-full bg-rose-500"></button>
+                            <button type="button" data-color="bg-indigo-500" class="color-picker-btn w-6 h-6 rounded-full bg-indigo-500"></button>
+                        </div>
+                        <input type="hidden" id="fieldAvatarColor" value="bg-sky-500">
+                    </div>
+                </div>
+
+                <!-- Name Field -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">姓名 <span class="text-rose-500">*</span></label>
+                    <input type="text" id="fieldName" required placeholder="例如：張小明" 
+                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white">
+                </div>
+
+                <!-- Phone Field -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">電話號碼 <span class="text-rose-500">*</span></label>
+                    <input type="tel" id="fieldPhone" required placeholder="例如：0912-345-678" 
+                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white">
+                </div>
+
+                <!-- Email Field -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">電子郵件</label>
+                    <input type="email" id="fieldEmail" placeholder="例如：example@domain.com" 
+                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white">
+                </div>
+
+                <!-- Category & Starred -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">分類標籤</label>
+                        <select id="fieldCategory" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white">
+                            <option value="家人">家人</option>
+                            <option value="工作">工作</option>
+                            <option value="朋友">朋友</option>
+                            <option value="其他" selected>其他</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">職稱 / 公司</label>
+                        <input type="text" id="fieldTitle" placeholder="例如：專案經理" 
+                            class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white">
+                    </div>
+                </div>
+
+                <!-- Address -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">地址</label>
+                    <input type="text" id="fieldAddress" placeholder="例如：台北市信義區..." 
+                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white">
+                </div>
+
+                <!-- Starred Checkbox -->
+                <div class="flex items-center space-x-2 pt-1">
+                    <input type="checkbox" id="fieldStarred" class="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500">
+                    <label for="fieldStarred" class="text-sm font-medium text-slate-700 select-none">加入常用/最愛聯絡人</label>
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">備註</label>
+                    <textarea id="fieldNotes" rows="2" placeholder="其他備註事項..." 
+                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white"></textarea>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+                    <button type="button" class="btnCloseModal px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+                        取消
+                    </button>
+                    <button type="submit" id="btnSaveContact" class="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-sm font-medium transition shadow-sm">
+                        儲存聯絡人
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Contact Detail Modal -->
+    <div id="modalContactView" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-100">
+            <div id="viewDetailContent">
+                <!-- Content will be rendered dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Delete Confirm Modal -->
+    <div id="modalDeleteConfirm" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-5 text-center shadow-2xl border border-slate-100 space-y-4">
+            <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-900 text-base">確定刪除此聯絡人？</h3>
+                <p id="deleteConfirmName" class="text-xs text-slate-500 mt-1">此動作無法復原。</p>
+            </div>
+            <div class="flex space-x-2">
+                <button id="btnCancelDelete" class="flex-1 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+                    取消
+                </button>
+                <button id="btnConfirmDelete" class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-medium transition shadow-sm">
+                    確認刪除
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Firebase Config Settings Modal -->
+    <div id="modalConfigSettings" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-900 text-base flex items-center">
+                    <i class="fa-solid fa-fire text-amber-500 mr-2"></i> Firebase 雲端設定
+                </h3>
+                <button class="btnCloseModal text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 leading-relaxed">
+                為避免 Firebase API key 出現在 GitHub 原始碼，請將 Firebase Web SDK 設定貼在這裡。設定只會儲存在目前瀏覽器。
+            </p>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Firebase SDK 設定 JSON</label>
+                    <textarea id="cfgJson" rows="7" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}' class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Project ID</label>
+                    <input type="text" id="cfgProjectId" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono" readonly>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Auth Domain</label>
+                    <input type="text" id="cfgAuthDomain" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono" readonly>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">連線狀態說明</label>
+                    <div id="cfgStatusBox" class="p-3 rounded-lg text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-start space-x-2">
+                        <i class="fa-solid fa-circle-check text-emerald-600 mt-0.5"></i>
+                        <span>專案已正常初始化，雲端資料同步運作中。</span>
+                    </div>
+                </div>
+
+                <!-- Firestore Security Rules Helper -->
+                <div class="pt-2 border-t border-slate-100">
+                    <label class="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                        <span><i class="fa-solid fa-shield-halved text-indigo-500 mr-1"></i> Firestore 安全規則設定 (Security Rules)</span>
+                        <button id="btnCopyRules" type="button" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline">複製規則</button>
+                    </label>
+                    <p class="text-[11px] text-slate-500 mb-1.5">若出現 <code class="bg-slate-100 px-1 text-rose-600 font-mono">Missing permissions</code> 錯誤，請至 Firebase Console ➔ Firestore Database ➔ 規則 (Rules)，貼上以下內容並點擊「發布」：</p>
+                    <pre id="codeRulesSnippet" class="bg-slate-900 text-slate-100 p-2.5 rounded-lg text-[11px] font-mono overflow-x-auto select-all leading-relaxed">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null
+        && request.auth.token.email == "ericyeh@ntsu.edu.tw";
+    }
+  }
+}</pre>
+                </div>
+            </div>
+            <div class="pt-2 flex justify-end gap-2">
+                <button id="btnSaveFirebaseConfig" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-medium rounded-xl">
+                    儲存設定並重新連線
+                </button>
+                <button class="btnCloseModal px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium rounded-xl">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Import & Export Modal -->
+    <div id="modalImportExport" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-900 text-base">備份與匯入匯出</h3>
+                <button class="btnCloseModal text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <button id="btnExportJSON" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium flex items-center justify-between transition">
+                    <span><i class="fa-solid fa-download mr-2 text-sky-600"></i>匯出聯絡人 (JSON 格式)</span>
+                    <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                </button>
+
+                <label class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium flex items-center justify-between transition cursor-pointer">
+                    <span><i class="fa-solid fa-file-arrow-up mr-2 text-emerald-600"></i>匯入聯絡人 (JSON 備份檔)</span>
+                    <input type="file" id="fileImportJSON" accept=".json" class="hidden">
+                    <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                </label>
+            </div>
+            
+            <div class="pt-2 flex justify-end">
+                <button class="btnCloseModal px-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Unauthorized Domain Guide Modal -->
+    <div id="modalUnauthorizedDomain" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-900 text-base flex items-center text-rose-600">
+                    <i class="fa-solid fa-triangle-exclamation mr-2"></i> 網域未授權錯誤 (unauthorized-domain)
+                </h3>
+                <button class="btnCloseModal text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-600 leading-relaxed">
+                <p class="font-medium text-slate-800">
+                    Firebase 基於安全考量，拒絕從未授權的網域進行 Google OAuth 登入。
+                </p>
+                <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
+                    <span class="block font-bold text-amber-900">當前存取網域：</span>
+                    <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-amber-200 font-mono text-slate-800 text-[11px]">
+                        <span id="currentDomainText" class="truncate font-bold text-indigo-600"></span>
+                        <button id="btnCopyCurrentDomain" type="button" class="ml-2 text-indigo-600 hover:text-indigo-800 font-bold shrink-0 underline">
+                            <i class="fa-solid fa-copy mr-1"></i>複製網域
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5 pt-1">
+                    <p class="font-bold text-slate-800">3 步驟快速修復方法：</p>
+                    <ol class="list-decimal list-inside space-y-1 text-slate-600 pl-1">
+                        <li>前往 <a href="https://console.firebase.google.com/" target="_blank" class="text-indigo-600 underline font-semibold">Firebase Console</a> 選擇專案 <code class="font-mono text-slate-800">test-a1db4</code></li>
+                        <li>進入 <strong>Authentication (身分驗證)</strong> ➔ 點選 <strong>Settings (設定)</strong> 頁籤 ➔ 找到 <strong>Authorized domains (已授權網域)</strong></li>
+                        <li>點擊 <strong>新增網域 (Add domain)</strong>，將上方複製的網域貼上並儲存。</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+                <button class="btnCloseModal px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium rounded-xl">
+                    我知道了，去設定
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            GoogleAuthProvider, 
+            signInWithPopup, 
+            signOut, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            updateDoc, 
+            deleteDoc, 
+            doc, 
+            onSnapshot, 
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Admin Email identifier
+        const ADMIN_EMAIL = "ericyeh@ntsu.edu.tw";
+
+        const FIREBASE_CONFIG_STORAGE_KEY = 'contactsFirebaseConfig';
+
+        function readFirebaseConfig() {
+            try {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    return typeof __firebase_config === 'string'
+                    ? JSON.parse(__firebase_config)
+                    : __firebase_config;
+                }
+
+                const storedConfig = localStorage.getItem(FIREBASE_CONFIG_STORAGE_KEY);
+                return storedConfig ? JSON.parse(storedConfig) : null;
+            } catch (e) {
+                console.warn("Failed to parse Firebase config:", e);
+                return null;
+            }
+        }
+
+        function isValidFirebaseConfig(config) {
+            return !!(
+                config &&
+                config.apiKey &&
+                config.authDomain &&
+                config.projectId &&
+                config.appId
+            );
+        }
+
+        let firebaseConfig = readFirebaseConfig();
+
+        const appId = (typeof __app_id !== 'undefined' && __app_id) ? __app_id : 'contacts-app';
+
+        let app = null;
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let isAdmin = false;
+        let contacts = [];
+        let activeCategory = 'all';
+        let searchQuery = '';
+        let viewMode = 'grid'; // 'grid' or 'list'
+        let pendingDeleteId = null;
+        let isCloudMode = false;
+        let unsubscribeContacts = null;
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-slate-800';
+            const icon = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-info';
+
+            toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-lg flex items-center space-x-2.5 text-xs sm:text-sm font-medium animate-fade-in pointer-events-auto max-w-sm`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i><span>${escapeHTML(message)}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function updateStatusBadge(type, text) {
+            const badge = document.getElementById('cloudStatusBadge');
+            const statusText = document.getElementById('statusText');
+            if (!badge) return;
+
+            if (type === 'cloud') {
+                badge.className = 'flex items-center space-x-1.5 text-xs text-emerald-600 font-medium';
+                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span id="statusText">' + escapeHTML(text) + '</span>';
+            } else if (type === 'guest') {
+                badge.className = 'flex items-center space-x-1.5 text-xs text-amber-600 font-medium';
+                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400"></span><span id="statusText">' + escapeHTML(text) + '</span>';
+            } else if (type === 'error') {
+                badge.className = 'flex items-center space-x-1.5 text-xs text-rose-600 font-medium';
+                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span id="statusText">' + escapeHTML(text) + '</span>';
+            } else {
+                if (statusText) statusText.textContent = text;
+            }
+        }
+
+        function updateConfigStatus(type, message) {
+            const box = document.getElementById('cfgStatusBox');
+            if (!box) return;
+
+            const styles = {
+                success: ['bg-emerald-50 text-emerald-800 border-emerald-200', 'fa-circle-check text-emerald-600'],
+                warning: ['bg-amber-50 text-amber-800 border-amber-200', 'fa-triangle-exclamation text-amber-600'],
+                error: ['bg-rose-50 text-rose-800 border-rose-200', 'fa-circle-exclamation text-rose-600']
+            };
+            const [boxClass, iconClass] = styles[type] || styles.warning;
+            box.className = `p-3 rounded-lg text-xs border flex items-start space-x-2 ${boxClass}`;
+            box.innerHTML = `<i class="fa-solid ${iconClass} mt-0.5"></i><span>${escapeHTML(message)}</span>`;
+        }
+
+        function populateFirebaseConfigFields() {
+            const cfgJson = document.getElementById('cfgJson');
+            const cfgProjectId = document.getElementById('cfgProjectId');
+            const cfgAuthDomain = document.getElementById('cfgAuthDomain');
+
+            if (cfgJson) {
+                cfgJson.value = firebaseConfig ? JSON.stringify(firebaseConfig, null, 2) : '';
+            }
+            if (cfgProjectId) cfgProjectId.value = firebaseConfig?.projectId || '尚未設定';
+            if (cfgAuthDomain) cfgAuthDomain.value = firebaseConfig?.authDomain || '尚未設定';
+        }
+
+        function openFirebaseConfigModal(message = '') {
+            populateFirebaseConfigFields();
+            updateConfigStatus(
+                isValidFirebaseConfig(firebaseConfig) ? 'success' : 'warning',
+                message || (isValidFirebaseConfig(firebaseConfig) ? 'Firebase 設定已載入。' : '尚未設定 Firebase，請貼上 Firebase Web SDK 設定 JSON。')
+            );
+            showModal('modalConfigSettings');
+        }
+
+        function saveFirebaseConfigFromModal() {
+            const cfgJson = document.getElementById('cfgJson');
+            if (!cfgJson) return;
+
+            try {
+                const nextConfig = JSON.parse(cfgJson.value.trim());
+                if (!isValidFirebaseConfig(nextConfig)) {
+                    updateConfigStatus('error', '設定缺少 apiKey、authDomain、projectId 或 appId。');
+                    return;
+                }
+
+                localStorage.setItem(FIREBASE_CONFIG_STORAGE_KEY, JSON.stringify(nextConfig));
+                showToast('Firebase 設定已儲存，正在重新載入。', 'success');
+                setTimeout(() => window.location.reload(), 700);
+            } catch (error) {
+                updateConfigStatus('error', 'JSON 格式不正確，請貼上 Firebase Web SDK 設定物件。');
+            }
+        }
+
+        function fallbackToLocal() {
+            isCloudMode = false;
+            isAdmin = false;
+            updateStatusBadge('guest', '🔒 未驗證 (請先登入)');
+            const btnGoogleLogin = document.getElementById('btnGoogleLogin');
+            const userProfileArea = document.getElementById('userProfileArea');
+            const authHeaderActions = document.getElementById('authenticatedHeaderActions');
+            const loginRequiredView = document.getElementById('loginRequiredView');
+            const authenticatedView = document.getElementById('authenticatedView');
+
+            if (btnGoogleLogin) btnGoogleLogin.classList.remove('hidden');
+            if (userProfileArea) {
+                userProfileArea.classList.add('hidden');
+                userProfileArea.classList.remove('flex');
+            }
+            if (authHeaderActions) authHeaderActions.classList.add('hidden');
+            if (loginRequiredView) loginRequiredView.classList.remove('hidden');
+            if (authenticatedView) authenticatedView.classList.add('hidden');
+
+            if (unsubscribeContacts) {
+                unsubscribeContacts();
+                unsubscribeContacts = null;
+            }
+            contacts = [];
+            renderContacts();
+        }
+
+        async function loginWithGoogle() {
+            if (!auth) {
+                showToast('Firebase 未初始化', 'error');
+                return;
+            }
+            try {
+                const provider = new GoogleAuthProvider();
+                provider.setCustomParameters({ prompt: 'select_account' });
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                if (error.code === 'auth/unauthorized-domain') {
+                    console.warn('Google 登入網域未授權:', error);
+                    const domainText = document.getElementById('currentDomainText');
+                    if (domainText) {
+                        domainText.textContent = window.location.hostname || window.location.host;
+                    }
+                    showModal('modalUnauthorizedDomain');
+                } else if (error.code !== 'auth/popup-closed-by-user') {
+                    console.error('Google 登入失敗:', error);
+                    showToast('Google 登入失敗：' + (error.message || '未知錯誤'), 'error');
+                }
+            }
+        }
+
+        function checkAdminPermission() {
+            if (!isAdmin) {
+                showToast(`存取受限：請先使用管理者 Google 帳號 (${ADMIN_EMAIL}) 登入！`, 'error');
+                loginWithGoogle();
+                return false;
+            }
+            return true;
+        }
+
+        async function logoutUser() {
+            try {
+                if (unsubscribeContacts) {
+                    unsubscribeContacts();
+                    unsubscribeContacts = null;
+                }
+                contacts = [];
+                if (auth) {
+                    await signOut(auth);
+                    await signInAnonymously(auth);
+                }
+                showToast('已成功登出並鎖定通訊錄資料', 'info');
+            } catch (error) {
+                console.error('登出失敗:', error);
+                showToast('登出失敗', 'error');
+            }
+        }
+
+        // Attach all utility functions to window IMMEDIATELY to prevent global scope ReferenceErrors
+        window.escapeHTML = escapeHTML;
+        window.showToast = showToast;
+        window.updateStatusBadge = updateStatusBadge;
+        window.fallbackToLocal = fallbackToLocal;
+        window.loginWithGoogle = loginWithGoogle;
+        window.checkAdminPermission = checkAdminPermission;
+        window.logoutUser = logoutUser;
+
+        async function initFirebase() {
+            try {
+                if (!isValidFirebaseConfig(firebaseConfig)) {
+                    fallbackToLocal();
+                    updateStatusBadge('error', 'Firebase 尚未設定');
+                    openFirebaseConfigModal('請先貼上 Firebase Web SDK 設定 JSON，儲存後即可登入。');
+                    return;
+                }
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                const cfgProjectId = document.getElementById('cfgProjectId');
+                const cfgAuthDomain = document.getElementById('cfgAuthDomain');
+                if (cfgProjectId) cfgProjectId.value = firebaseConfig.projectId || 'N/A';
+                if (cfgAuthDomain) cfgAuthDomain.value = firebaseConfig.authDomain || 'N/A';
+                populateFirebaseConfigFields();
+                updateConfigStatus('success', '專案已正常初始化，雲端資料同步運作中。');
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    try {
+                        const { signInWithCustomToken } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } catch (e) {
+                        console.warn("Token auth skipped:", e);
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        currentUser = user;
+                        isCloudMode = true;
+
+                        const btnGoogleLogin = document.getElementById('btnGoogleLogin');
+                        const userProfileArea = document.getElementById('userProfileArea');
+                        const authHeaderActions = document.getElementById('authenticatedHeaderActions');
+                        const loginRequiredView = document.getElementById('loginRequiredView');
+                        const authenticatedView = document.getElementById('authenticatedView');
+
+                        if (user.isAnonymous) {
+                            isAdmin = false;
+                            updateStatusBadge('guest', '🔒 未驗證 (請先登入)');
+
+                            if (btnGoogleLogin) btnGoogleLogin.classList.remove('hidden');
+                            if (userProfileArea) {
+                                userProfileArea.classList.add('hidden');
+                                userProfileArea.classList.remove('flex');
+                            }
+                            if (authHeaderActions) authHeaderActions.classList.add('hidden');
+                            if (loginRequiredView) loginRequiredView.classList.remove('hidden');
+                            if (authenticatedView) authenticatedView.classList.add('hidden');
+                            
+                            if (unsubscribeContacts) {
+                                unsubscribeContacts();
+                                unsubscribeContacts = null;
+                            }
+                            contacts = [];
+                            renderContacts();
+                        } else {
+                            const isSpecificAdmin = user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+                            if (!isSpecificAdmin) {
+                                isAdmin = false;
+                                showToast(`此帳號沒有管理權限，請使用 ${ADMIN_EMAIL} 登入`, 'error');
+                                await signOut(auth);
+                                await signInAnonymously(auth);
+                                return;
+                            }
+
+                            isAdmin = true;
+                            
+                            updateStatusBadge('cloud', `已驗證 (${user.email || ADMIN_EMAIL})`);
+
+                            if (btnGoogleLogin) btnGoogleLogin.classList.add('hidden');
+                            if (userProfileArea) {
+                                userProfileArea.classList.remove('hidden');
+                                userProfileArea.classList.add('flex');
+                            }
+                            if (authHeaderActions) {
+                                authHeaderActions.classList.remove('hidden');
+                                authHeaderActions.classList.add('flex');
+                            }
+                            if (loginRequiredView) loginRequiredView.classList.add('hidden');
+                            if (authenticatedView) authenticatedView.classList.remove('hidden');
+                            
+                            const userName = document.getElementById('userName');
+                            const userEmail = document.getElementById('userEmail');
+                            const userAvatar = document.getElementById('userAvatar');
+
+                            if (userName) userName.textContent = isSpecificAdmin ? '系統管理者' : (user.displayName || '管理者');
+                            if (userEmail) userEmail.textContent = user.email || ADMIN_EMAIL;
+                            if (userAvatar) userAvatar.src = user.photoURL || `https://placehold.co/100x100/0284c7/ffffff?text=${encodeURIComponent((user.displayName||'E').charAt(0))}`;
+
+                            showToast(`歡迎回來！已驗證管理者：${user.email || ADMIN_EMAIL}`, 'success');
+                            subscribeToFirestore();
+                        }
+                    } else {
+                        fallbackToLocal();
+                    }
+                });
+
+            } catch (err) {
+                console.warn('Firebase init error, using local fallback:', err);
+                fallbackToLocal();
+            }
+        }
+
+        function getContactsCollection() {
+            if (!currentUser || currentUser.isAnonymous) return null;
+            return collection(db, 'artifacts', appId, 'users', currentUser.uid, 'contacts');
+        }
+
+        function subscribeToFirestore() {
+            const colRef = getContactsCollection();
+            if (!colRef) return;
+
+            if (unsubscribeContacts) {
+                unsubscribeContacts();
+            }
+
+            unsubscribeContacts = onSnapshot(colRef, (snapshot) => {
+                const banner = document.getElementById('permissionWarningBanner');
+                if (banner) banner.classList.add('hidden');
+
+                contacts = [];
+                snapshot.forEach(docSnap => {
+                    contacts.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                contacts.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh-TW'));
+                renderContacts();
+            }, (error) => {
+                console.error("Firestore read error:", error);
+                if (error.code === 'permission-denied' || (error.message && error.message.includes('permissions'))) {
+                    const banner = document.getElementById('permissionWarningBanner');
+                    if (banner) banner.classList.remove('hidden');
+                    showToast("Firestore 讀取失敗：權限不足，請查看 Security Rules 設定", "error");
+                } else {
+                    showToast("雲端同步中斷", "error");
+                }
+            });
+        }
+
+        async function saveContact(data) {
+            if (!checkAdminPermission()) return;
+
+            if (isCloudMode && currentUser && !currentUser.isAnonymous) {
+                try {
+                    const colRef = getContactsCollection();
+                    if (!colRef) return;
+
+                    if (data.id) {
+                        const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'contacts', data.id);
+                        const { id, ...updateData } = data;
+                        updateData.updatedAt = serverTimestamp();
+                        await updateDoc(docRef, updateData);
+                        showToast('聯絡人資料已更新至雲端', 'success');
+                    } else {
+                        data.createdAt = serverTimestamp();
+                        await addDoc(colRef, data);
+                        showToast('已新增聯絡人至雲端', 'success');
+                    }
+                } catch (err) {
+                    console.error("Cloud save failed:", err);
+                    showToast('雲端儲存失敗：' + (err.message || '權限不足'), 'error');
+                }
+            }
+        }
+
+        async function deleteContact(id) {
+            if (!checkAdminPermission()) return;
+
+            if (isCloudMode && currentUser && !currentUser.isAnonymous) {
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'contacts', id);
+                    await deleteDoc(docRef);
+                    showToast('聯絡人已成功刪除', 'success');
+                } catch (err) {
+                    console.error("Cloud delete error:", err);
+                    showToast('刪除失敗：' + (err.message || '權限不足'), 'error');
+                }
+            }
+        }
+
+        async function toggleFavorite(id, currentStatus) {
+            if (!checkAdminPermission()) return;
+
+            const newStatus = !currentStatus;
+            if (isCloudMode && currentUser && !currentUser.isAnonymous) {
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'contacts', id);
+                    await updateDoc(docRef, { starred: newStatus });
+                } catch (e) {
+                    console.error("Toggle star failed", e);
+                }
+            }
+        }
+
+        function renderContacts() {
+            const grid = document.getElementById('contactGrid');
+            const emptyState = document.getElementById('emptyState');
+            const countBadge = document.getElementById('contactCountBadge');
+
+            if (!grid) return;
+
+            let filtered = contacts.filter(item => {
+                if (activeCategory === 'starred' && !item.starred) return false;
+                if (activeCategory !== 'all' && activeCategory !== 'starred' && item.category !== activeCategory) return false;
+
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const name = (item.name || '').toLowerCase();
+                    const phone = (item.phone || '').toLowerCase();
+                    const email = (item.email || '').toLowerCase();
+                    const notes = (item.notes || '').toLowerCase();
+                    const title = (item.title || '').toLowerCase();
+                    return name.includes(q) || phone.includes(q) || email.includes(q) || notes.includes(q) || title.includes(q);
+                }
+                return true;
+            });
+
+            if (countBadge) countBadge.textContent = `共 ${filtered.length} 位聯絡人`;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                if (emptyState) {
+                    emptyState.classList.remove('hidden');
+                    emptyState.classList.add('flex');
+                }
+                return;
+            } else if (emptyState) {
+                emptyState.classList.add('hidden');
+                emptyState.classList.remove('flex');
+            }
+
+            if (viewMode === 'grid') {
+                grid.className = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
+                grid.innerHTML = filtered.map(item => createGridCardHTML(item)).join('');
+            } else {
+                grid.className = "flex flex-col space-y-2";
+                grid.innerHTML = filtered.map(item => createListCardHTML(item)).join('');
+            }
+
+            attachCardEventListeners();
+        }
+
+        function createGridCardHTML(item) {
+            const initial = (item.name || '?').charAt(0).toUpperCase();
+            const colorClass = item.avatarColor || 'bg-sky-500';
+            const starClass = item.starred ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-300 hover:text-amber-400';
+
+            return `
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative">
+                    <div>
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-12 h-12 rounded-full ${colorClass} text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                                    ${initial}
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-slate-900 text-base leading-tight group-hover:text-sky-600 transition">
+                                        ${escapeHTML(item.name)}
+                                    </h3>
+                                    ${item.title ? `<p class="text-xs text-slate-500 mt-0.5">${escapeHTML(item.title)}</p>` : ''}
+                                </div>
+                            </div>
+                            <button data-action="star" data-id="${item.id}" data-starred="${item.starred}" class="p-1.5 rounded-lg hover:bg-slate-100 transition text-base" title="設為常用">
+                                <i class="${starClass}"></i>
+                            </button>
+                        </div>
+
+                        <div class="mb-3">
+                            <span class="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-md ${getCategoryBadgeStyle(item.category)}">
+                                ${escapeHTML(item.category || '其他')}
+                            </span>
+                        </div>
+
+                        <div class="space-y-1.5 text-xs text-slate-600">
+                            <p class="flex items-center space-x-2">
+                                <i class="fa-solid fa-phone text-slate-400 w-4"></i>
+                                <span class="font-mono text-slate-700 font-medium">${escapeHTML(item.phone)}</span>
+                            </p>
+                            ${item.email ? `
+                            <p class="flex items-center space-x-2 truncate">
+                                <i class="fa-solid fa-envelope text-slate-400 w-4"></i>
+                                <span class="truncate">${escapeHTML(item.email)}</span>
+                            </p>` : ''}
+                            ${item.address ? `
+                            <p class="flex items-center space-x-2 truncate">
+                                <i class="fa-solid fa-location-dot text-slate-400 w-4"></i>
+                                <span class="truncate">${escapeHTML(item.address)}</span>
+                            </p>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <div class="flex items-center space-x-1">
+                            <a href="tel:${item.phone}" title="撥打電話" class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition">
+                                <i class="fa-solid fa-phone"></i>
+                            </a>
+                            ${item.email ? `
+                            <a href="mailto:${item.email}" title="傳送 Email" class="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 flex items-center justify-center transition">
+                                <i class="fa-solid fa-envelope"></i>
+                            </a>` : ''}
+                            ${item.address ? `
+                            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.address)}" target="_blank" title="查看地圖" class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 flex items-center justify-center transition">
+                                <i class="fa-solid fa-map-pin"></i>
+                            </a>` : ''}
+                        </div>
+
+                        <div class="flex items-center space-x-1">
+                            <button data-action="view" data-id="${item.id}" class="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-slate-100 rounded-lg transition" title="詳細資訊">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                            <button data-action="edit" data-id="${item.id}" class="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-slate-100 rounded-lg transition" title="編輯 (需管理者)">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button data-action="delete" data-id="${item.id}" data-name="${escapeHTML(item.name)}" class="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition" title="刪除 (需管理者)">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createListCardHTML(item) {
+            const initial = (item.name || '?').charAt(0).toUpperCase();
+            const colorClass = item.avatarColor || 'bg-sky-500';
+            const starClass = item.starred ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-300 hover:text-amber-400';
+
+            return `
+                <div class="bg-white rounded-xl p-3.5 border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3 min-w-0 flex-1">
+                        <div class="w-10 h-10 rounded-full ${colorClass} text-white flex items-center justify-center font-bold text-sm shrink-0">
+                            ${initial}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center space-x-2">
+                                <h3 class="font-bold text-slate-900 text-sm truncate">${escapeHTML(item.name)}</h3>
+                                <span class="px-2 py-0.5 text-[10px] font-semibold rounded ${getCategoryBadgeStyle(item.category)} shrink-0">
+                                    ${escapeHTML(item.category || '其他')}
+                                </span>
+                            </div>
+                            <div class="flex items-center space-x-4 text-xs text-slate-500 mt-0.5">
+                                <span class="font-mono text-slate-700">${escapeHTML(item.phone)}</span>
+                                ${item.email ? `<span class="hidden sm:inline truncate">${escapeHTML(item.email)}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-2 shrink-0">
+                        <button data-action="star" data-id="${item.id}" data-starred="${item.starred}" class="p-1.5 rounded-lg hover:bg-slate-100 transition text-sm">
+                            <i class="${starClass}"></i>
+                        </button>
+                        <a href="tel:${item.phone}" class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition text-xs">
+                            <i class="fa-solid fa-phone"></i>
+                        </a>
+                        <button data-action="view" data-id="${item.id}" class="p-1.5 text-slate-500 hover:text-sky-600 rounded-lg text-xs">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                        <button data-action="edit" data-id="${item.id}" class="p-1.5 text-slate-500 hover:text-sky-600 rounded-lg text-xs">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button data-action="delete" data-id="${item.id}" data-name="${escapeHTML(item.name)}" class="p-1.5 text-slate-500 hover:text-rose-600 rounded-lg text-xs">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getCategoryBadgeStyle(cat) {
+            switch (cat) {
+                case '家人': return 'bg-rose-50 text-rose-600 border border-rose-100';
+                case '工作': return 'bg-sky-50 text-sky-600 border border-sky-100';
+                case '朋友': return 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+                default: return 'bg-slate-100 text-slate-600 border border-slate-200';
+            }
+        }
+
+        function attachCardEventListeners() {
+            document.querySelectorAll('[data-action="star"]').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.dataset.id;
+                    const starred = btn.dataset.starred === 'true';
+                    toggleFavorite(id, starred);
+                };
+            });
+
+            document.querySelectorAll('[data-action="view"]').forEach(btn => {
+                btn.onclick = () => openViewModal(btn.dataset.id);
+            });
+
+            document.querySelectorAll('[data-action="edit"]').forEach(btn => {
+                btn.onclick = () => {
+                    if (checkAdminPermission()) {
+                        openEditModal(btn.dataset.id);
+                    }
+                };
+            });
+
+            document.querySelectorAll('[data-action="delete"]').forEach(btn => {
+                btn.onclick = () => {
+                    if (checkAdminPermission()) {
+                        openDeleteModal(btn.dataset.id, btn.dataset.name);
+                    }
+                };
+            });
+        }
+
+        function openAddModal() {
+            if (!checkAdminPermission()) return;
+
+            document.getElementById('formModalTitle').textContent = '新增聯絡人';
+            document.getElementById('contactForm').reset();
+            document.getElementById('fieldContactId').value = '';
+            document.getElementById('fieldAvatarColor').value = 'bg-sky-500';
+            updateAvatarPreview('?', 'bg-sky-500');
+            showModal('modalContactForm');
+        }
+
+        function openEditModal(id) {
+            const item = contacts.find(c => c.id === id);
+            if (!item) return;
+
+            document.getElementById('formModalTitle').textContent = '編輯聯絡人';
+            document.getElementById('fieldContactId').value = item.id;
+            document.getElementById('fieldName').value = item.name || '';
+            document.getElementById('fieldPhone').value = item.phone || '';
+            document.getElementById('fieldEmail').value = item.email || '';
+            document.getElementById('fieldCategory').value = item.category || '其他';
+            document.getElementById('fieldTitle').value = item.title || '';
+            document.getElementById('fieldAddress').value = item.address || '';
+            document.getElementById('fieldNotes').value = item.notes || '';
+            document.getElementById('fieldStarred').checked = !!item.starred;
+            document.getElementById('fieldAvatarColor').value = item.avatarColor || 'bg-sky-500';
+
+            updateAvatarPreview((item.name || '?').charAt(0), item.avatarColor || 'bg-sky-500');
+            showModal('modalContactForm');
+        }
+
+        function openViewModal(id) {
+            const item = contacts.find(c => c.id === id);
+            if (!item) return;
+
+            const initial = (item.name || '?').charAt(0).toUpperCase();
+            const colorClass = item.avatarColor || 'bg-sky-500';
+
+            const container = document.getElementById('viewDetailContent');
+            container.innerHTML = `
+                <div class="p-6 bg-slate-50 text-center border-b border-slate-100 relative">
+                    <button class="btnCloseModal absolute right-4 top-4 text-slate-400 hover:text-slate-600">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                    <div class="w-20 h-20 rounded-full ${colorClass} text-white flex items-center justify-center font-bold text-3xl mx-auto mb-3 shadow-md">
+                        ${initial}
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-xl">${escapeHTML(item.name)}</h3>
+                    ${item.title ? `<p class="text-xs text-slate-500 mt-1">${escapeHTML(item.title)}</p>` : ''}
+                    <div class="mt-2">
+                        <span class="px-2.5 py-0.5 text-xs font-semibold rounded-md ${getCategoryBadgeStyle(item.category)}">
+                            ${escapeHTML(item.category || '其他')}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-4 text-sm">
+                    <div class="flex items-center space-x-3 text-slate-700">
+                        <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+                            <i class="fa-solid fa-phone"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] text-slate-400 font-medium uppercase">電話號碼</p>
+                            <p class="font-mono font-medium text-slate-900">${escapeHTML(item.phone)}</p>
+                        </div>
+                        <a href="tel:${item.phone}" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition">
+                            撥打
+                        </a>
+                    </div>
+
+                    ${item.email ? `
+                    <div class="flex items-center space-x-3 text-slate-700">
+                        <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+                            <i class="fa-solid fa-envelope"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] text-slate-400 font-medium uppercase">Email</p>
+                            <p class="truncate font-medium text-slate-900">${escapeHTML(item.email)}</p>
+                        </div>
+                        <a href="mailto:${item.email}" class="px-3 py-1.5 bg-sky-600 text-white rounded-lg text-xs font-medium hover:bg-sky-700 transition">
+                            郵件
+                        </a>
+                    </div>` : ''}
+
+                    ${item.address ? `
+                    <div class="flex items-start space-x-3 text-slate-700">
+                        <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shrink-0 mt-0.5">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] text-slate-400 font-medium uppercase">通訊地址</p>
+                            <p class="text-xs leading-relaxed font-medium text-slate-900">${escapeHTML(item.address)}</p>
+                        </div>
+                    </div>` : ''}
+
+                    ${item.notes ? `
+                    <div class="pt-2 border-t border-slate-100">
+                        <p class="text-[10px] text-slate-400 font-medium uppercase mb-1">備註事項</p>
+                        <p class="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl leading-relaxed">${escapeHTML(item.notes)}</p>
+                    </div>` : ''}
+                </div>
+
+                <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end space-x-2">
+                    <button id="btnViewEdit" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-200 transition">
+                        <i class="fa-solid fa-pen mr-1"></i>編輯
+                    </button>
+                    <button class="btnCloseModal px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-medium hover:bg-slate-900 transition">
+                        關閉
+                    </button>
+                </div>
+            `;
+
+            container.querySelector('.btnCloseModal').onclick = () => hideModal('modalContactView');
+            container.querySelector('#btnViewEdit').onclick = () => {
+                hideModal('modalContactView');
+                if (checkAdminPermission()) {
+                    openEditModal(item.id);
+                }
+            };
+
+            showModal('modalContactView');
+        }
+
+        function openDeleteModal(id, name) {
+            pendingDeleteId = id;
+            document.getElementById('deleteConfirmName').textContent = `您確定要刪除「${name}」嗎？`;
+            showModal('modalDeleteConfirm');
+        }
+
+        function showModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
+        }
+
+        function hideModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        }
+
+        function updateAvatarPreview(text, colorClass) {
+            const preview = document.getElementById('avatarPreview');
+            if (!preview) return;
+            preview.textContent = text || '?';
+            preview.className = `w-14 h-14 rounded-full ${colorClass} text-white flex items-center justify-center text-xl font-bold shadow-md shrink-0`;
+        }
+
+        function setupUI() {
+            initFirebase();
+
+            document.querySelectorAll('.btnCloseModal').forEach(btn => {
+                btn.onclick = () => {
+                    hideModal('modalContactForm');
+                    hideModal('modalContactView');
+                    hideModal('modalConfigSettings');
+                    hideModal('modalImportExport');
+                    hideModal('modalUnauthorizedDomain');
+                };
+            });
+
+            const btnCopyCurrentDomain = document.getElementById('btnCopyCurrentDomain');
+            if (btnCopyCurrentDomain) {
+                btnCopyCurrentDomain.onclick = () => {
+                    const domain = window.location.hostname || window.location.host;
+                    const textarea = document.createElement('textarea');
+                    textarea.value = domain;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    showToast(`已複製網域: ${domain}`, 'success');
+                };
+            }
+
+            const btnAddContact = document.getElementById('btnAddContact');
+            if (btnAddContact) btnAddContact.onclick = openAddModal;
+
+            const btnEmptyAdd = document.getElementById('btnEmptyAdd');
+            if (btnEmptyAdd) btnEmptyAdd.onclick = openAddModal;
+
+            const btnBannerLogin = document.getElementById('btnBannerLogin');
+            if (btnBannerLogin) btnBannerLogin.onclick = loginWithGoogle;
+            
+            const btnLockScreenLogin = document.getElementById('btnLockScreenLogin');
+            if (btnLockScreenLogin) btnLockScreenLogin.onclick = loginWithGoogle;
+
+            const btnGoogleLogin = document.getElementById('btnGoogleLogin');
+            if (btnGoogleLogin) btnGoogleLogin.onclick = loginWithGoogle;
+
+            const btnPublicConfigSettings = document.getElementById('btnPublicConfigSettings');
+            if (btnPublicConfigSettings) {
+                btnPublicConfigSettings.onclick = () => openFirebaseConfigModal();
+            }
+
+            const btnSignOut = document.getElementById('btnSignOut');
+            if (btnSignOut) btnSignOut.onclick = logoutUser;
+
+            const btnConfigSettings = document.getElementById('btnConfigSettings');
+            if (btnConfigSettings) {
+                btnConfigSettings.onclick = () => openFirebaseConfigModal();
+            }
+
+            const btnSaveFirebaseConfig = document.getElementById('btnSaveFirebaseConfig');
+            if (btnSaveFirebaseConfig) {
+                btnSaveFirebaseConfig.onclick = saveFirebaseConfigFromModal;
+            }
+
+            const btnCopy = document.getElementById('btnCopyRules');
+            if (btnCopy) {
+                btnCopy.onclick = () => {
+                    const rulesText = document.getElementById('codeRulesSnippet').textContent;
+                    const textarea = document.createElement('textarea');
+                    textarea.value = rulesText;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    showToast('已複製 Security Rules 規則內容！', 'success');
+                };
+            }
+
+            const btnImportExport = document.getElementById('btnImportExport');
+            if (btnImportExport) {
+                btnImportExport.onclick = () => {
+                    if (checkAdminPermission()) {
+                        showModal('modalImportExport');
+                    }
+                };
+            }
+
+            const btnExportJSON = document.getElementById('btnExportJSON');
+            if (btnExportJSON) {
+                btnExportJSON.onclick = () => {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(contacts, null, 2));
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    downloadAnchor.setAttribute("download", `contacts_backup_${new Date().toISOString().slice(0,10)}.json`);
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                    showToast('已成功下載聯絡人備份檔', 'success');
+                };
+            }
+
+            const fileImportJSON = document.getElementById('fileImportJSON');
+            if (fileImportJSON) {
+                fileImportJSON.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = async (evt) => {
+                        try {
+                            const imported = JSON.parse(evt.target.result);
+                            if (Array.isArray(imported)) {
+                                for (const item of imported) {
+                                    delete item.id;
+                                    await saveContact(item);
+                                }
+                                showToast(`成功匯入 ${imported.length} 筆聯絡人`, 'success');
+                                hideModal('modalImportExport');
+                            } else {
+                                showToast('檔案格式不正確', 'error');
+                            }
+                        } catch (err) {
+                            showToast('讀取檔案失敗', 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+            }
+
+            // Contact Form Submit Handler
+            const contactForm = document.getElementById('contactForm');
+            if (contactForm) {
+                contactForm.onsubmit = async (e) => {
+                    e.preventDefault();
+                    const id = document.getElementById('fieldContactId').value;
+                    const name = document.getElementById('fieldName').value.trim();
+                    const phone = document.getElementById('fieldPhone').value.trim();
+                    const email = document.getElementById('fieldEmail').value.trim();
+                    const category = document.getElementById('fieldCategory').value;
+                    const title = document.getElementById('fieldTitle').value.trim();
+                    const address = document.getElementById('fieldAddress').value.trim();
+                    const notes = document.getElementById('fieldNotes').value.trim();
+                    const starred = document.getElementById('fieldStarred').checked;
+                    const avatarColor = document.getElementById('fieldAvatarColor').value;
+
+                    if (!name || !phone) {
+                        showToast('請填寫姓名與電話！', 'error');
+                        return;
+                    }
+
+                    const contactData = { name, phone, email, category, title, address, notes, starred, avatarColor };
+                    if (id) contactData.id = id;
+
+                    await saveContact(contactData);
+                    hideModal('modalContactForm');
+                };
+            }
+
+            // Delete Confirm Buttons
+            const btnConfirmDelete = document.getElementById('btnConfirmDelete');
+            if (btnConfirmDelete) {
+                btnConfirmDelete.onclick = async () => {
+                    if (pendingDeleteId) {
+                        await deleteContact(pendingDeleteId);
+                        pendingDeleteId = null;
+                        hideModal('modalDeleteConfirm');
+                    }
+                };
+            }
+
+            const btnCancelDelete = document.getElementById('btnCancelDelete');
+            if (btnCancelDelete) {
+                btnCancelDelete.onclick = () => {
+                    pendingDeleteId = null;
+                    hideModal('modalDeleteConfirm');
+                };
+            }
+
+            // Category Filter Buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.onclick = () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => {
+                        b.classList.remove('bg-sky-600', 'text-white');
+                        b.classList.add('bg-slate-100', 'text-slate-600');
+                    });
+                    btn.classList.remove('bg-slate-100', 'text-slate-600');
+                    btn.classList.add('bg-sky-600', 'text-white');
+                    activeCategory = btn.dataset.category;
+                    renderContacts();
+                };
+            });
+
+            // Search input and clear button
+            const searchInput = document.getElementById('searchInput');
+            const btnClearSearch = document.getElementById('btnClearSearch');
+
+            if (searchInput) {
+                searchInput.oninput = (e) => {
+                    searchQuery = e.target.value.trim();
+                    if (btnClearSearch) {
+                        if (searchQuery) {
+                            btnClearSearch.classList.remove('hidden');
+                        } else {
+                            btnClearSearch.classList.add('hidden');
+                        }
+                    }
+                    renderContacts();
+                };
+            }
+
+            if (btnClearSearch) {
+                btnClearSearch.onclick = () => {
+                    if (searchInput) searchInput.value = '';
+                    searchQuery = '';
+                    btnClearSearch.classList.add('hidden');
+                    renderContacts();
+                };
+            }
+
+            // View switch buttons
+            const btnViewGrid = document.getElementById('btnViewGrid');
+            const btnViewList = document.getElementById('btnViewList');
+
+            if (btnViewGrid && btnViewList) {
+                btnViewGrid.onclick = () => {
+                    viewMode = 'grid';
+                    btnViewGrid.className = 'px-2.5 py-1 rounded-lg text-sky-600 bg-white shadow-sm font-medium transition';
+                    btnViewList.className = 'px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 transition';
+                    renderContacts();
+                };
+
+                btnViewList.onclick = () => {
+                    viewMode = 'list';
+                    btnViewList.className = 'px-2.5 py-1 rounded-lg text-sky-600 bg-white shadow-sm font-medium transition';
+                    btnViewGrid.className = 'px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 transition';
+                    renderContacts();
+                };
+            }
+
+            // Color picker buttons
+            document.querySelectorAll('.color-picker-btn').forEach(btn => {
+                btn.onclick = () => {
+                    document.querySelectorAll('.color-picker-btn').forEach(b => b.classList.remove('ring-2', 'ring-offset-1', 'ring-sky-500'));
+                    btn.classList.add('ring-2', 'ring-offset-1', 'ring-sky-500');
+                    const color = btn.dataset.color;
+                    document.getElementById('fieldAvatarColor').value = color;
+                    const nameVal = document.getElementById('fieldName').value;
+                    updateAvatarPreview(nameVal ? nameVal.charAt(0) : '?', color);
+                };
+            });
+
+            const fieldName = document.getElementById('fieldName');
+            if (fieldName) {
+                fieldName.oninput = (e) => {
+                    const color = document.getElementById('fieldAvatarColor').value;
+                    updateAvatarPreview(e.target.value ? e.target.value.charAt(0) : '?', color);
+                };
+            }
+        }
+
+        // Guarantee initialization regardless of load timing
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupUI);
+        } else {
+            setupUI();
+        }
+    </script>
+</body>
+</html>
