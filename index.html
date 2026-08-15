@@ -169,6 +169,11 @@
                 <i class="fa-brands fa-google text-amber-300 text-lg"></i>
                 <span>使用 Google 帳號 (ericyeh@ntsu.edu.tw) 驗證登入</span>
             </button>
+
+            <button id="btnLockScreenConfig" class="border border-slate-200 hover:border-sky-300 hover:bg-sky-50 text-slate-600 hover:text-sky-700 px-5 py-2.5 rounded-xl font-medium text-sm transition flex items-center space-x-2">
+                <i class="fa-solid fa-gear"></i>
+                <span>Firebase 設定</span>
+            </button>
         </div>
 
         <!-- Authenticated Content Container (Hidden until logged in) -->
@@ -1381,6 +1386,11 @@ service cloud.firestore {
             
             const btnLockScreenLogin = document.getElementById('btnLockScreenLogin');
             if (btnLockScreenLogin) btnLockScreenLogin.onclick = loginWithGoogle;
+
+            const btnLockScreenConfig = document.getElementById('btnLockScreenConfig');
+            if (btnLockScreenConfig) {
+                btnLockScreenConfig.onclick = () => openFirebaseConfigModal();
+            }
 
             const btnGoogleLogin = document.getElementById('btnGoogleLogin');
             if (btnGoogleLogin) btnGoogleLogin.onclick = loginWithGoogle;
